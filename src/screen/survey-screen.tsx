@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Loader2, Star, CheckCircle, User } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
@@ -17,6 +17,22 @@ import {
 } from "../components/ui/select";
 import { useParams } from "react-router-dom";
 
+const validateRUC = (ruc: string): boolean => {
+  if (!/^\d{11}$/.test(ruc)) return false;
+
+  const factors = [5, 4, 3, 2, 7, 6, 5, 4, 3, 2];
+
+  const sum = factors.reduce(
+    (acc, factor, index) => acc + Number(ruc[index]) * factor,
+    0,
+  );
+
+  const remainder = 11 - (sum % 11);
+  const checkDigit = remainder === 10 ? 0 : remainder === 11 ? 1 : remainder;
+
+  return checkDigit === Number(ruc[10]);
+};
+
 const SurveyPage = () => {
   const { id } = useParams();
   const [survey, setSurvey] = useState<any>(null);
@@ -33,7 +49,7 @@ const SurveyPage = () => {
   useEffect(() => {
     if (!id) return;
 
-    const loadData = async () => {
+    (async () => {
       try {
         const [surveyData, advisorsData] = await Promise.all([
           getSurveyById(id),
@@ -48,43 +64,46 @@ const SurveyPage = () => {
       } finally {
         setLoading(false);
       }
-    };
-
-    loadData();
+    })();
   }, [id]);
 
-  const handleAnswer = (questionId: string, value: any) => {
+  const handleAnswer = useCallback((questionId: string, value: any) => {
     setAnswers((prev) => ({
       ...prev,
       [questionId]: value,
     }));
 
-    if (errors[questionId]) {
-      setErrors((prev) => {
-        const copy = { ...prev };
-        delete copy[questionId];
-        return copy;
-      });
-    }
-  };
+    setErrors((prev) => {
+      if (!prev[questionId]) return prev;
 
-  const validate = () => {
+      const copy = { ...prev };
+      delete copy[questionId];
+      return copy;
+    });
+  }, []);
+
+  const validate = useCallback(() => {
+    if (!survey) return false;
+
     const newErrors: Record<string, string> = {};
 
-    survey.questions.forEach((q: any) => {
-      if (q.required) {
-        const value = answers[q.id];
+    for (const q of survey.questions) {
+      const value = answers[q.id];
 
-        if (value === undefined || value === null || value === "") {
-          newErrors[q.id] = "Campo obligatorio";
-        }
+      if (q.required && !value) {
+        newErrors[q.id] = "Campo obligatorio";
+        continue;
       }
-    });
+
+      if (q.validation === "ruc" && value && !validateRUC(value)) {
+        newErrors[q.id] = "RUC inválido";
+      }
+    }
 
     setErrors(newErrors);
 
     return Object.keys(newErrors).length === 0;
-  };
+  }, [survey, answers]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -117,6 +136,11 @@ const SurveyPage = () => {
     }
   };
 
+  const selectedAdvisor = useMemo(
+    () => advisors.find((a) => a.id === selectedAdvisorId),
+    [advisors, selectedAdvisorId],
+  );
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -124,10 +148,6 @@ const SurveyPage = () => {
       </div>
     );
   }
-
-  const selectedAdvisor = advisors.find(
-    (advisor) => advisor.id === selectedAdvisorId,
-  );
 
   if (!survey) {
     return (
@@ -347,10 +367,25 @@ const SurveyPage = () => {
                         type="text"
                         className="w-full h-12 bg-[#f2f2f2] border border-[#f2f2f2] text-foreground rounded-xl focus:ring-2 focus:ring-[#305289] focus:border-[#305289] block px-4 transition-all placeholder:text-muted-foreground"
                         placeholder="Escribe tu respuesta..."
-                        value={answers[question.id] || ""}
-                        onChange={(e) =>
-                          handleAnswer(question.id, e.target.value)
+                        maxLength={
+                          question.validation === "ruc"
+                            ? 11
+                            : undefined
                         }
+                        inputMode={
+                          question.validation === "ruc"
+                            ? "numeric"
+                            : "text"
+                        }
+                        value={answers[question.id] || ""}
+                        onChange={(e) => {
+                          let value = e.target.value;
+                          if (question.validation === "ruc") {
+                            value = value.replace(/\D/g, "").slice(0, 11);
+                          }
+
+                          handleAnswer(question.id, value);
+                        }}
                       />
                     )}
 
