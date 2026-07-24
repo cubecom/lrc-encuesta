@@ -1,0 +1,1 @@
+export const IP_API = 'https://ipapi.co/json/'

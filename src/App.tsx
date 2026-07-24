@@ -4,7 +4,6 @@ import SurveyPage from "./screen/survey-screen";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 
 function App() {
-  console.log('hola peru')
   return (
     <BrowserRouter>
       <Routes>

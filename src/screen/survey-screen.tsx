@@ -16,6 +16,7 @@ import {
   SelectValue,
 } from "../components/ui/select";
 import { useParams } from "react-router-dom";
+import { getClientInfo } from "../lib/utils/getClientInfo";
 
 const validateRUC = (ruc: string): boolean => {
   if (!/^\d{11}$/.test(ruc)) return false;
@@ -120,11 +121,13 @@ const SurveyPage = () => {
 
     try {
       setSubmitting(true);
+      const clientInfo = await getClientInfo();
 
       await createSurveyResponse({
         form_id: survey.id,
         advisor_id: selectedAdvisorId,
         answers,
+        client_info: clientInfo,
       });
 
       setSubmitted(true);

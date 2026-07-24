@@ -59,12 +59,22 @@ export const getAdvisors = async (): Promise<IUser[]> => {
       : null,
   }));
 };
-
+type ClientInfo = {
+  ip_address: string;
+  city: string;
+  region: string;
+  country: string;
+  browser: string;
+  device: string;
+  language: string;
+  user_agent: string;
+};
 export const createSurveyResponse = async (
   payload: {
     form_id: string;
     advisor_id: string;
     answers: Record<string, any>;
+    client_info: ClientInfo;
   }
 ) => {
   const { data, error } = await supabase
